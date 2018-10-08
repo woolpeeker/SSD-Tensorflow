@@ -16,11 +16,15 @@
 import tensorflow as tf
 from tensorflow.python.ops import control_flow_ops
 
-from datasets import dataset_factory
 from deployment import model_deploy
 from nets import nets_factory
 from preprocessing import preprocessing_factory
 import tf_utils
+import os
+
+from datasets.wider_face import get_wider_demo_train_data, get_wider_demo_train_num_samples
+
+os.environ['CUDA_VISIBLE_DEVICES']='0'
 
 slim = tf.contrib.slim
 
@@ -40,7 +44,7 @@ tf.app.flags.DEFINE_float(
 # General Flags.
 # =========================================================================== #
 tf.app.flags.DEFINE_string(
-    'train_dir', '/tmp/tfmodel/',
+    'train_dir', './checkpoints',
     'Directory where checkpoints and event logs are written to.')
 tf.app.flags.DEFINE_integer('num_clones', 1,
                             'Number of model clones to deploy.')
@@ -129,29 +133,29 @@ tf.app.flags.DEFINE_float(
 # =========================================================================== #
 # Dataset Flags.
 # =========================================================================== #
-tf.app.flags.DEFINE_string(
-    'dataset_name', 'imagenet', 'The name of the dataset to load.')
+#tf.app.flags.DEFINE_string(
+#    'dataset_name', 'imagenet', 'The name of the dataset to load.')
 tf.app.flags.DEFINE_integer(
-    'num_classes', 21, 'Number of classes to use in the dataset.')
-tf.app.flags.DEFINE_string(
-    'dataset_split_name', 'train', 'The name of the train/test split.')
-tf.app.flags.DEFINE_string(
-    'dataset_dir', None, 'The directory where the dataset files are stored.')
-tf.app.flags.DEFINE_integer(
-    'labels_offset', 0,
-    'An offset for the labels in the dataset. This flag is primarily used to '
-    'evaluate the VGG and ResNet architectures which do not use a background '
-    'class for the ImageNet dataset.')
+    'num_classes', 1, 'Number of classes to use in the dataset.')
+#tf.app.flags.DEFINE_string(
+#    'dataset_split_name', 'train', 'The name of the train/test split.')
+#tf.app.flags.DEFINE_string(
+#    'dataset_dir', None, 'The directory where the dataset files are stored.')
+#tf.app.flags.DEFINE_integer(
+#    'labels_offset', 0,
+#    'An offset for the labels in the dataset. This flag is primarily used to '
+#    'evaluate the VGG and ResNet architectures which do not use a background '
+#    'class for the ImageNet dataset.')
 tf.app.flags.DEFINE_string(
     'model_name', 'ssd_300_vgg', 'The name of the architecture to train.')
 tf.app.flags.DEFINE_string(
     'preprocessing_name', None, 'The name of the preprocessing to use. If left '
     'as `None`, then the model_name flag is used.')
 tf.app.flags.DEFINE_integer(
-    'batch_size', 32, 'The number of samples in each batch.')
-tf.app.flags.DEFINE_integer(
-    'train_image_size', None, 'Train image size')
-tf.app.flags.DEFINE_integer('max_number_of_steps', None,
+    'batch_size', 12, 'The number of samples in each batch.')
+#tf.app.flags.DEFINE_integer(
+#    'train_image_size', None, 'Train image size')
+tf.app.flags.DEFINE_integer('max_number_of_steps', 1000,
                             'The maximum number of training steps.')
 
 # =========================================================================== #
@@ -182,8 +186,6 @@ FLAGS = tf.app.flags.FLAGS
 # Main training routine.
 # =========================================================================== #
 def main(_):
-    if not FLAGS.dataset_dir:
-        raise ValueError('You must supply the dataset directory with --dataset_dir')
 
     tf.logging.set_verbosity(tf.logging.DEBUG)
     with tf.Graph().as_default():
@@ -197,11 +199,7 @@ def main(_):
             num_ps_tasks=0)
         # Create global_step.
         with tf.device(deploy_config.variables_device()):
-            global_step = slim.create_global_step()
-
-        # Select the dataset.
-        dataset = dataset_factory.get_dataset(
-            FLAGS.dataset_name, FLAGS.dataset_split_name, FLAGS.dataset_dir)
+            global_step = tf.train.create_global_step()
 
         # Get the SSD network and its anchors.
         ssd_class = nets_factory.get_network(FLAGS.model_name)
@@ -215,23 +213,13 @@ def main(_):
         image_preprocessing_fn = preprocessing_factory.get_preprocessing(
             preprocessing_name, is_training=True)
 
-        tf_utils.print_configuration(FLAGS.__flags, ssd_params,
-                                     dataset.data_sources, FLAGS.train_dir)
         # =================================================================== #
         # Create a dataset provider and batches.
         # =================================================================== #
         with tf.device(deploy_config.inputs_device()):
-            with tf.name_scope(FLAGS.dataset_name + '_data_provider'):
-                provider = slim.dataset_data_provider.DatasetDataProvider(
-                    dataset,
-                    num_readers=FLAGS.num_readers,
-                    common_queue_capacity=20 * FLAGS.batch_size,
-                    common_queue_min=10 * FLAGS.batch_size,
-                    shuffle=True)
-            # Get for SSD network: image, labels, bboxes.
-            [image, shape, glabels, gbboxes] = provider.get(['image', 'shape',
-                                                             'object/label',
-                                                             'object/bbox'])
+            with tf.name_scope('data_provider'):
+                [image, shape, format, filename, glabels, gbboxes, gdifficults]=get_wider_demo_train_data(is_training_data=True)
+
             # Pre-processing image, labels and bboxes.
             image, glabels, gbboxes = \
                 image_preprocessing_fn(image, glabels, gbboxes,
@@ -326,7 +314,7 @@ def main(_):
         # =================================================================== #
         with tf.device(deploy_config.optimizer_device()):
             learning_rate = tf_utils.configure_learning_rate(FLAGS,
-                                                             dataset.num_samples,
+                                                             get_wider_demo_train_num_samples(),
                                                              global_step)
             optimizer = tf_utils.configure_optimizer(FLAGS, learning_rate)
             summaries.add(tf.summary.scalar('learning_rate', learning_rate))
