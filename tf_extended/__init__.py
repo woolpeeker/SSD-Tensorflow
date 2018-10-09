@@ -21,4 +21,4 @@ from tf_extended.tensors import *
 from tf_extended.bboxes import *
 from tf_extended.image import *
 from tf_extended.math import *
-
+from tf_extended.anchors import *
