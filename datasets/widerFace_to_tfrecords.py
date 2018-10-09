@@ -37,6 +37,7 @@ import os
 import random
 
 import cv2
+import re
 import tensorflow as tf
 
 from datasets.dataset_utils import int64_feature, float_feature, bytes_feature
@@ -193,7 +194,7 @@ def run(anno_path, dataset_path, output_dir, name, shuffling=False):
         random.shuffle(annotations)
 
     # Process dataset files.
-    num_per_shard = 200
+    num_per_shard = 15000
     num_shard = int(math.ceil(len(annotations) / float(num_per_shard)))
 
     for shard_id in range(num_shard):
@@ -223,7 +224,13 @@ def run(anno_path, dataset_path, output_dir, name, shuffling=False):
 
 def get_annotations(anno_path):
     anno_file = open(anno_path, 'r')
-    annotations = anno_file.readlines()
+    annotations=[]
+    for i,line in enumerate(anno_file.readlines()):
+        line=line.rstrip()
+        if re.match('^.*\.jpg$',line):
+            annotations.append(line)
+        elif len(line.split())==4:
+            annotations[-1]=annotations[-1]+' '+line
     return annotations
 
 
@@ -233,9 +240,9 @@ if __name__ == "__main__":
     # output_dir = "../../DATA/wider_tfrecord/"
 
     path=os.path.split(__file__)[0]
-    dataset_dir=path+'/widerface_demo/jpg'
-    anno_file = path+'/widerface_demo/wider_face_train.txt'
-    output_dir = path+'/widerface_demo/'
+    dataset_dir=path+'/widerface_demo2/jpg'
+    anno_file = path+'/widerface_demo2/wider_face_train_bbx_gt.txt'
+    output_dir = path+'/widerface_demo2/'
     name = 'widerface_demo'
 
     # get_filenames(anno_file,dataset_dir)

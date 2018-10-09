@@ -22,13 +22,12 @@ from preprocessing import preprocessing_factory
 import tf_utils
 import os
 
-from datasets.wider_face import get_wider_demo_train_data, get_wider_demo_train_num_samples
+from datasets.wider_face import DATASET_FN,DATASET_SIZE
 
 os.environ['CUDA_VISIBLE_DEVICES']='0'
+DATA_FORMAT = 'NHWC'
 
 slim = tf.contrib.slim
-
-DATA_FORMAT = 'NCHW'
 
 # =========================================================================== #
 # SSD Network flags.
@@ -66,8 +65,6 @@ tf.app.flags.DEFINE_integer(
 tf.app.flags.DEFINE_integer(
     'save_interval_secs', 600,
     'The frequency with which the model is saved, in seconds.')
-tf.app.flags.DEFINE_float(
-    'gpu_memory_fraction', 0.8, 'GPU memory fraction to use.')
 
 # =========================================================================== #
 # Optimization Flags.
@@ -109,6 +106,8 @@ tf.app.flags.DEFINE_float('rmsprop_decay', 0.9, 'Decay term for RMSProp.')
 # =========================================================================== #
 # Learning Rate Flags.
 # =========================================================================== #
+tf.app.flags.DEFINE_integer('max_number_of_steps', 500,
+                            'The maximum number of training steps.')
 tf.app.flags.DEFINE_string(
     'learning_rate_decay_type',
     'exponential',
@@ -133,8 +132,8 @@ tf.app.flags.DEFINE_float(
 # =========================================================================== #
 # Dataset Flags.
 # =========================================================================== #
-#tf.app.flags.DEFINE_string(
-#    'dataset_name', 'imagenet', 'The name of the dataset to load.')
+tf.app.flags.DEFINE_string(
+    'dataset_name', 'wider_face_demo2', 'The name of the dataset to load.')
 #tf.app.flags.DEFINE_string(
 #    'dataset_split_name', 'train', 'The name of the train/test split.')
 #tf.app.flags.DEFINE_string(
@@ -152,11 +151,9 @@ tf.app.flags.DEFINE_string(
     'preprocessing_name', None, 'The name of the preprocessing to use. If left '
     'as `None`, then the model_name flag is used.')
 tf.app.flags.DEFINE_integer(
-    'batch_size', 12, 'The number of samples in each batch.')
+    'batch_size', 8, 'The number of samples in each batch.')
 #tf.app.flags.DEFINE_integer(
 #    'train_image_size', None, 'Train image size')
-tf.app.flags.DEFINE_integer('max_number_of_steps', 1000,
-                            'The maximum number of training steps.')
 
 # =========================================================================== #
 # Fine-Tuning Flags.
@@ -218,7 +215,7 @@ def main(_):
         # =================================================================== #
         with tf.device(deploy_config.inputs_device()):
             with tf.name_scope('data_provider'):
-                [image, shape, format, filename, glabels, gbboxes, gdifficults]=get_wider_demo_train_data(is_training_data=True)
+                [image, shape, format, filename, glabels, gbboxes, gdifficults]=DATASET_FN[FLAGS.dataset_name]()
 
             # Pre-processing image, labels and bboxes.
             image, glabels, gbboxes = \
@@ -311,7 +308,7 @@ def main(_):
         # =================================================================== #
         with tf.device(deploy_config.optimizer_device()):
             learning_rate = tf_utils.configure_learning_rate(FLAGS,
-                                                             get_wider_demo_train_num_samples(),
+                                                             DATASET_SIZE[FLAGS.dataset_name],
                                                              global_step)
             optimizer = tf_utils.configure_optimizer(FLAGS, learning_rate)
             summaries.add(tf.summary.scalar('learning_rate', learning_rate))
@@ -348,7 +345,7 @@ def main(_):
         # =================================================================== #
         # Kicks off the training.
         # =================================================================== #
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=FLAGS.gpu_memory_fraction)
+        gpu_options = tf.GPUOptions()
         config = tf.ConfigProto(log_device_placement=False,
                                 gpu_options=gpu_options)
         saver = tf.train.Saver(max_to_keep=5,

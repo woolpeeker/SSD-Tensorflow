@@ -22,7 +22,7 @@ from preprocessing import preprocessing_factory
 import tf_utils
 import os
 
-from datasets.wider_face import get_wider_demo_train_data, get_wider_demo_train_num_samples
+from datasets.wider_face import DATASET_FN,DATASET_SIZE
 
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 
@@ -75,7 +75,7 @@ tf.app.flags.DEFINE_float(
 tf.app.flags.DEFINE_float(
     'weight_decay', 0.00004, 'The weight decay on the model weights.')
 tf.app.flags.DEFINE_string(
-    'optimizer', 'rmsprop',
+    'optimizer', 'adam',
     'The name of the optimizer, one of "adadelta", "adagrad", "adam",'
     '"ftrl", "momentum", "sgd" or "rmsprop".')
 tf.app.flags.DEFINE_float(
@@ -133,8 +133,8 @@ tf.app.flags.DEFINE_float(
 # =========================================================================== #
 # Dataset Flags.
 # =========================================================================== #
-#tf.app.flags.DEFINE_string(
-#    'dataset_name', 'imagenet', 'The name of the dataset to load.')
+tf.app.flags.DEFINE_string(
+    'dataset_name', 'wider_face_demo2', 'The name of the dataset to load.')
 tf.app.flags.DEFINE_integer(
     'num_classes', 1, 'Number of classes to use in the dataset.')
 #tf.app.flags.DEFINE_string(
@@ -152,7 +152,7 @@ tf.app.flags.DEFINE_string(
     'preprocessing_name', None, 'The name of the preprocessing to use. If left '
     'as `None`, then the model_name flag is used.')
 tf.app.flags.DEFINE_integer(
-    'batch_size', 12, 'The number of samples in each batch.')
+    'batch_size', 8, 'The number of samples in each batch.')
 #tf.app.flags.DEFINE_integer(
 #    'train_image_size', None, 'Train image size')
 tf.app.flags.DEFINE_integer('max_number_of_steps', 1000,
@@ -218,7 +218,7 @@ def main(_):
         # =================================================================== #
         with tf.device(deploy_config.inputs_device()):
             with tf.name_scope('data_provider'):
-                [image, shape, format, filename, glabels, gbboxes, gdifficults]=get_wider_demo_train_data(is_training_data=True)
+                [image, shape, format, filename, glabels, gbboxes, gdifficults]=DATASET_FN[FLAGS.dataset_name]()
 
             # Pre-processing image, labels and bboxes.
             image, glabels, gbboxes = \
@@ -314,7 +314,7 @@ def main(_):
         # =================================================================== #
         with tf.device(deploy_config.optimizer_device()):
             learning_rate = tf_utils.configure_learning_rate(FLAGS,
-                                                             get_wider_demo_train_num_samples(),
+                                                             DATASET_SIZE[FLAGS.dataset_name],
                                                              global_step)
             optimizer = tf_utils.configure_optimizer(FLAGS, learning_rate)
             summaries.add(tf.summary.scalar('learning_rate', learning_rate))

@@ -28,8 +28,8 @@ class Mobilenet:
         img_shape=(512, 512),
         num_classes=2,
         no_annotation_label=2,
-        feat_layers=['block4', 'block7', 'block8', 'block9', 'block10', 'block11'],
-        feat_shapes=[(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)],
+        feat_layers = ['expanded_conv', 'expanded_conv_2', 'expanded_conv_5', 'expanded_conv_8', 'expanded_conv_12', 'expanded_conv_16'],
+        feat_shapes=[(256, 256), (128, 128), (64, 64), (32, 32), (32, 32), (16, 16)],
         anchor_size_bounds=[0.15, 0.90],
         anchor_sizes=[(21., 45.),
                       (45., 99.),
@@ -90,9 +90,9 @@ class Mobilenet:
             prior_scaling=self.params.prior_scaling,
             scope=scope)
 
-    def mobilenet_net(self, inputs, prediction_fn=slim.softmax, is_training=True, reuse=None,):
+    def net(self, inputs, prediction_fn=slim.softmax, is_training=True, reuse=None,):
         num_classes=self.params.num_classes
-        feat_layers=self.params.feat_shapes
+        feat_layers=self.params.feat_layers
         anchor_sizes=self.params.anchor_sizes
         anchor_ratios=self.params.anchor_ratios
 
@@ -102,6 +102,9 @@ class Mobilenet:
         scopes.insert(0,'expanded_conv')
         for scope in scopes:
             end_point_name='/'.join(['MobilenetV2',scope,'output:0'])
+            ns=tf.get_default_graph().get_name_scope()
+            if ns!='' and ns is not None:
+                end_point_name=ns+'/'+end_point_name
             end_point = tf.get_default_graph().get_tensor_by_name(end_point_name)
             end_points[scope] = end_point
 

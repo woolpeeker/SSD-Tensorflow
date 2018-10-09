@@ -3,20 +3,20 @@ import tensorflow.contrib.slim as slim
 
 FLAGS = tf.app.flags.FLAGS
 
-DATASET_SIZE = {
-    'wider_face_val': 3226,
-    'wider_face_test': 5011,
-    'wider_face_train': 12880,
-    'wider_demo_train': 1
-}
 
-def get_wider_demo_train_num_samples():
-    return DATASET_SIZE['wider_demo_train']
+def get_wider_demo1_data(is_training_data=True):
+    data_sources = "datasets/widerface_demo1/widerface_demo*.tfrecord"
+    num_samples = DATASET_SIZE['wider_face_demo1']
+    return get_images_labels_bboxes(data_sources, num_samples, is_training_data)
 
-def get_wider_demo_train_data(is_training_data=True):
-    data_sources = "datasets/widerface_demo/widerface_demo*.tfrecord"
-    num_samples = DATASET_SIZE['wider_demo_train']
+def get_wider_demo2_data(is_training_data=True):
+    data_sources = "datasets/widerface_demo2/widerface_demo*.tfrecord"
+    num_samples = DATASET_SIZE['wider_face_demo2']
+    return get_images_labels_bboxes(data_sources, num_samples, is_training_data)
 
+def get_wider_train_data(is_training_data=True):
+    data_sources = "datasets/widerface/widerface_train_*.tfrecord"
+    num_samples = DATASET_SIZE['wider_face_train']
     return get_images_labels_bboxes(data_sources, num_samples, is_training_data)
 
 
@@ -25,6 +25,20 @@ ITEMS_TO_DESCRIPTIONS = {
     'shape': 'Shape of the image',
     'object/bbox': 'A list of bounding boxes, one per each object.',
     'object/label': 'A list of labels, one per each object.',
+}
+
+DATASET_SIZE = {
+    'wider_face_val': 3226,
+    'wider_face_test': 5011,
+    'wider_face_train': 12880,
+    'wider_face_demo1': 1,
+    'wider_face_demo2': 29,
+}
+
+DATASET_FN = {
+    'wider_face_train': get_wider_train_data,
+    'wider_face_demo1': get_wider_demo1_data,
+    'wider_face_demo2': get_wider_demo2_data,
 }
 
 
